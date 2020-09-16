@@ -6,6 +6,7 @@
 #include "afxwin.h"
 #include "ConnectSocket.h"
 #include "afxcmn.h"
+#include "queue"
 
 // CSendClientDlg 대화 상자
 class CSendClientDlg : public CDialogEx
@@ -35,29 +36,40 @@ protected:
 public:
 	CString			m_PortStr;
 	CString			m_IpStr;
-	CString			m_rcvMessage;
 	CListBox		m_List;
 	BOOL			m_receiveFlag;
 	CString			m_strMessage;
 	CString			m_strBright;
 	CString			m_strExpose;
 	ConnectSocket	m_Socket;
+	BOOL			m_IsConnected;
+
+public:
 	CEdit			m_PortEdit;
 	CIPAddressCtrl	m_IPEdit;
 	CEdit			m_IsConnectEdit;
-	BOOL			m_IsConnected;
+	
+public:
+	HANDLE			h_LogThread;
+	HANDLE			h_LogTerminate;
+	// Threads for log
 
 	CRITICAL_SECTION mSc;
+
+	std::queue<CString> m_rcvqueue;
 
 public:
 	afx_msg void OnBnClickedConnectbtn();
 	afx_msg void OnBnClickedShoot();
+	
 
 private:
 	void nowtime(CString* write);
 	BOOL IsWrongInput(LPCTSTR input, UINT32 utype);
+	
 
 public:
+	void RcvLogWrite();
 	void InLog(LPCTSTR content);
 	void OutLog(LPCTSTR content, INT32 errcode);
 	afx_msg void OnDestroy();

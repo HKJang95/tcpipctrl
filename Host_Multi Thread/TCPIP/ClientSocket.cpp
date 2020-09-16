@@ -29,8 +29,6 @@ void CClientSocket::SetListenSocket(CAsyncSocket* pSocket)
 }
 
 // CClientSocket 멤버 함수
-
-
 void CClientSocket::OnClose(int nErrorCode)
 {
 	// TODO: 여기에 특수화된 코드를 추가 및/또는 기본 클래스를 호출합니다.
@@ -43,6 +41,7 @@ void CClientSocket::OnClose(int nErrorCode)
 
 void CClientSocket::OnReceive(int nErrorCode)
 {
+	OutputDebugString(_T("Receive !!!! \n"));
 	CTCPIPDlg* pMain = (CTCPIPDlg*)AfxGetMainWnd();
 	
 	CString  strIpAddress = _T("");
@@ -57,8 +56,10 @@ void CClientSocket::OnReceive(int nErrorCode)
 		pMain->m_ReceiveIP = strIpAddress;
 		pMain->m_ReceivePort = uPortNumber;
 		pMain->opLog(strIpAddress, uPortNumber, szBuffer);
+		
 		if (pMain->m_rcvqueue.size() < OP_MAX_VAL)
 		{
+			
 			pMain->m_rcvqueue.push(szBuffer);
 		}
 		else

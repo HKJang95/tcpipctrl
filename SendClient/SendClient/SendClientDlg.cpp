@@ -18,8 +18,6 @@
 #define BRIGHT 10
 #define EXPOSE 11
 
-
-
 // 응용 프로그램 정보에 사용되는 CAboutDlg 대화 상자입니다.
 
 class CAboutDlg : public CDialogEx
@@ -51,9 +49,6 @@ END_MESSAGE_MAP()
 
 
 // CSendClientDlg 대화 상자
-
-
-
 CSendClientDlg::CSendClientDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(CSendClientDlg::IDD, pParent)
 	, m_receiveFlag(FALSE)
@@ -61,11 +56,17 @@ CSendClientDlg::CSendClientDlg(CWnd* pParent /*=NULL*/)
 	, m_IpStr(_T(""))
 	, m_PortStr(_T(""))
 	, m_IsConnected(FALSE)
-	, m_rcvMessage(_T(""))
 	, m_strBright(_T(""))
 	, m_strExpose(_T(""))
+	, h_LogThread(NULL)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
+	h_LogTerminate = CreateEvent(NULL, true, false, _T("LOG_TERMINATE"));
+}
+
+void LogThreadProc(CSendClientDlg* pPrivate)
+{
+	pPrivate->RcvLogWrite();
 }
 
 void CSendClientDlg::DoDataExchange(CDataExchange* pDX)
@@ -126,6 +127,7 @@ BOOL CSendClientDlg::OnInitDialog()
 
 	GetDlgItem(IDC_SHOOT)->EnableWindow(FALSE);
 	::InitializeCriticalSection(&mSc);
+	h_LogThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)LogThreadProc, this, 0, NULL);
 
 	return TRUE;  // 포커스를 컨트롤에 설정하지 않으면 TRUE를 반환합니다.
 }
@@ -219,10 +221,6 @@ void CSendClientDlg::OnBnClickedShoot()
 			OutLog(m_strMessage, SOCKET_TIMEOUT);
 		}
 	}
-	
-
-	
-
 	GetDlgItem(IDC_SHOOT)->EnableWindow(FALSE);
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
 }
@@ -264,14 +262,13 @@ void CSendClientDlg::InLog(LPCTSTR content)
 
 	if (in.Find(_T("[GRAB_FAIL]")) >= 0)
 	{
-		logstr.Format(_T("%s 영상 Grab 실패. 다시 시도해주시거나 카메라 설정을 확인해주세요. 혹은 라이트 설정을 확인해주세요."), time);
+		logstr.Format(_T("%s 영상 Grab 실패. 카메라 연결 상태를 확인해주세요."), time);
 		m_List.InsertString(-1, logstr);
-		
 	}
 
 	if (in.Find(_T("[CAMERA_FAIL]")) >= 0)
 	{
-		logstr.Format(_T("%s 카메라 이상. 연결 상태 혹은 Camera Open 상태 점검요망."), time);
+		logstr.Format(_T("%s 카메라 이상. Camera Open 상태 점검요망."), time);
 		m_List.InsertString(-1, logstr);
 
 	}
@@ -390,7 +387,6 @@ void CSendClientDlg::OnBnClickedConnectbtn()
 	}
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
 }
-
 void CSendClientDlg::nowtime(CString* write)
 {
 	CString nowtime = _T("");
@@ -410,6 +406,25 @@ void CSendClientDlg::nowtime(CString* write)
 void CSendClientDlg::OnDestroy()
 {
 	CDialogEx::OnDestroy();
+
+	SetEvent(h_LogTerminate);
+	WaitForSingleObject(h_LogThread, INFINITE);
+	CloseHandle(h_LogThread);
+	h_LogThread = NULL;
+
 	::DeleteCriticalSection(&mSc);
 	// TODO: 여기에 메시지 처리기 코드를 추가합니다.
+}
+
+void CSendClientDlg::RcvLogWrite()
+{
+	while (WaitForSingleObject(h_LogTerminate, 0) != WAIT_OBJECT_0)
+	{
+		if (!m_rcvqueue.empty())
+		{
+			CString msg = m_rcvqueue.back();
+			InLog(msg);
+			m_rcvqueue.pop();
+		}
+	}
 }

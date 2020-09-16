@@ -43,9 +43,9 @@ void ConnectSocket::OnReceive(int nErrorCode)
 	if (Receive(szBuffer, sizeof(szBuffer)) > 0)
 	{
 		CSendClientDlg* pMain = (CSendClientDlg *)AfxGetMainWnd();
-		pMain->InLog(szBuffer);
 		pMain->GetDlgItem(IDC_SHOOT)->EnableWindow(TRUE);
-		pMain->m_rcvMessage = szBuffer;
+		OutputDebugString(szBuffer);
+		pMain->m_rcvqueue.push(szBuffer);
 		pMain->m_strMessage = _T("");
 	}
 

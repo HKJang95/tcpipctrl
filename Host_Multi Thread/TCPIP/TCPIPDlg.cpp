@@ -316,6 +316,7 @@ void CTCPIPDlg::OnDestroy()
 	{
 		if (m_hcommandThread[i] != NULL)
 		{
+			
 			WaitForSingleObject(m_hcommandThread[i], 1000);
 			CloseHandle(m_hcommandThread[i]);
 			m_hcommandThread[i] = NULL;
@@ -337,22 +338,30 @@ void CTCPIPDlg::commandQueueManager()
 {
 	while (WaitForSingleObject(m_hmanageTerminate, 0) != WAIT_OBJECT_0)
 	{
+		CString debug;
+		for (int i = 0; i < OP_MAX_VAL; i++)
+		{
+			if (m_hcommandThread[i] != NULL && !m_IsThreadRunning[i])
+			{
+				debug.Format(_T("Terminate : %d\n"), i);
+				OutputDebugString(debug);
+				CloseHandle(m_hcommandThread[i]);
+				m_hcommandThread[i] = NULL;
+			}
+		}
+		Sleep(15);
 		if (!m_rcvqueue.empty())
 		{
 			m_command = m_rcvqueue.back();
-			
 
 			for (int i = 0; i < OP_MAX_VAL;i++)
 			{
 				if (!m_IsThreadRunning[i])
 				{
-					if (m_hcommandThread[i] != NULL)
-					{
-						CloseHandle(m_hcommandThread[i]);
-						m_hcommandThread[i] = NULL;
-					}
 					m_run = i;
 					m_hcommandThread[i] = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)ActionThreadProc, this, 0, NULL);
+					debug.Format(_T("run : %d\n"), i);
+					OutputDebugString(debug);
 					m_rcvqueue.pop();
 					break;
 				}
@@ -370,7 +379,7 @@ void CTCPIPDlg::ActionControl(CString ReceiveMsg, int mynumber)
 	BOOL complete = TRUE;
 	CString msg = _T("");
 	CString innerLogMsg = _T("");
-
+	
 	AfxExtractSubString(brightStr, ReceiveMsg, 0, '#');
 	AfxExtractSubString(exposeStr, ReceiveMsg, 1, '#');
 	bright = _ttoi(brightStr);
@@ -392,6 +401,7 @@ void CTCPIPDlg::ActionControl(CString ReceiveMsg, int mynumber)
 			opLog(innerLogMsg);
 		}
 	}
+	
 	if (m_IsCameraOpen)
 	{
 		if (m_pCamera->SetExposeTime(expose))
@@ -404,7 +414,7 @@ void CTCPIPDlg::ActionControl(CString ReceiveMsg, int mynumber)
 			innerLogMsg.Format(_T("%f 노출 지정 실패."), expose);
 			opLog(innerLogMsg);
 		}
-		
+		Sleep(50);
 		if (m_pCamera->GrabImage())
 		{
 			RawToBmp(mynumber);
@@ -422,8 +432,7 @@ void CTCPIPDlg::ActionControl(CString ReceiveMsg, int mynumber)
 	}
 	else
 	{
-		Sleep(15);
-		LightControl(LIGHT_OFF);
+		if (m_IsSerialOpen) { Sleep(15); LightControl(LIGHT_OFF); }
 		::LeaveCriticalSection(&mSc);
 		AddCompleteMsg(CAMERA_NOT_OPEN, &msg, brightStr);
 		opLog(_T("카메라 Open되지 않음. 카메라 제어 불가."));
@@ -443,7 +452,7 @@ void CTCPIPDlg::ActionControl(CString ReceiveMsg, int mynumber)
 	::EnterCriticalSection(&mSc);
 	sendCompleteMsg(msg);
 	::LeaveCriticalSection(&mSc);
-	opLog(_T("응답 전달 완료."));
+	
 	m_IsThreadRunning[mynumber] = FALSE;
 	return;
 }
@@ -537,6 +546,7 @@ void CTCPIPDlg::sendCompleteMsg(LPCTSTR errMsg)
 			if (tempIP == m_ReceiveIP && utempPort == m_ReceivePort)
 			{
 				pClient->Send(errMsg, lstrlen(errMsg) * 2);
+				opLog(_T("응답 전달 완료."));
 			}
 		}
 	}
